@@ -1,7 +1,8 @@
 #!/bin/bash
 # install_and_setup.sh
-# This script installs and configures Cockpit, Netdata, Ollama, Docker, and a Flask landing page.
-# It also creates a systemd service for the Flask app and restarts all services in the proper order.
+# This script installs and configures Cockpit, Netdata, Ollama, Docker,
+# and a Flask landing page with required Python packages.
+# It also creates systemd services for Ollama and Flask, then restarts all services.
 
 set -e  # Exit on error
 set -o pipefail  # Catch pipeline errors
@@ -16,7 +17,7 @@ echo "Detected Server IP: $SERVER_IP"
 # Set Flask Port (choose a port not in use: 80, 3000, 9090, 19999)
 FLASK_PORT=5050
 
-# Extend logical volume (this will work if there's free space available)
+# Extend logical volume (only if there is free space available)
 echo "Checking available disk space..."
 sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
 echo "Disk extended successfully!"
@@ -34,7 +35,7 @@ sudo apt update && sudo apt upgrade -y
 echo "Installing Python and Pip..."
 sudo apt install -y python3 python3-pip
 echo "Installing Flask..."
-pip3 install flask
+pip3 install --break-system-packages flask
 
 # Install Cockpit
 echo "Installing Cockpit..."
@@ -59,8 +60,7 @@ sudo apt-get install -y ca-certificates curl gnupg lsb-release
 
 # Add Docker repository
 echo "Adding Docker repository..."
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Update package index again
 sudo apt-get update
@@ -85,7 +85,8 @@ docker rm -f open-webui || true
 
 # Deploy Open WebUI container
 echo "Deploying Open WebUI container..."
-docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway \
+docker run -d -p 3000:8080 --add-host=host.docker.internal:172.17.0.1 \
+  -e OLLAMA_HOST=host.docker.internal:11434 \
   -v open-webui:/app/backend/data --name open-webui --restart always \
   ghcr.io/open-webui/open-webui:main
 echo "Open WebUI is available at: http://$SERVER_IP:3000"
@@ -125,10 +126,10 @@ ollama pull deepseek-r1:14b
 ollama pull mistral:7b
 ollama pull mixtral:8x7b
 
-# Install additional Python packages
+# Install additional Python packages (using --break-system-packages to override restrictions)
 echo "Installing required Python packages..."
-pip3 install --upgrade pip
-pip3 install \
+pip3 install --upgrade pip --break-system-packages
+pip3 install --break-system-packages \
     numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
     deap umap-learn scikit-learn imbalanced-learn ucimlrepo flask
 
