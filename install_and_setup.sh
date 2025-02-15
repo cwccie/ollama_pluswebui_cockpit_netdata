@@ -27,7 +27,7 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc
 # Update and upgrade system
 sudo apt update && sudo apt upgrade -y
 
-# Install Python, Pip, and Virtualenv support
+# Install Python, Pip, and Virtual Environment support
 echo "Installing Python, Pip, and Virtual Environment support..."
 sudo apt install -y python3 python3-pip python3-venv
 
@@ -140,7 +140,7 @@ def home():
     return "<h1>Welcome to the Flask Landing Page!</h1>"
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=$FLASK_PORT, debug=False)
+    app.run(host='0.0.0.0', port=${FLASK_PORT}, debug=False)
 EOF
 
 # Create systemd service for Flask
@@ -151,9 +151,9 @@ Description=Flask Web Application
 After=network.target
 
 [Service]
-User=$USER
-WorkingDirectory=$FLASK_APP_DIR
-ExecStart=$FLASK_VENV/bin/python $FLASK_APP_DIR/app.py
+User=${USER}
+WorkingDirectory=${FLASK_APP_DIR}
+ExecStart=${FLASK_VENV}/bin/python ${FLASK_APP_DIR}/app.py
 Restart=always
 
 [Install]
@@ -166,19 +166,42 @@ sudo systemctl daemon-reload
 sudo systemctl enable flask
 sudo systemctl restart flask
 
-# Restart all services in order
-echo "Restarting services..."
-sudo systemctl restart ollama
-sudo systemctl restart docker
-sudo systemctl restart cockpit.socket
-sudo systemctl restart netdata
-sudo systemctl restart flask
+# -- Debugging note for Flask --
+# If Flask does not start, run:
+#    sudo systemctl status flask
+# and review logs via:
+#    journalctl -u flask --no-pager
+# to help identify any issues with the service.
+
+# Install Samba for SMB shares
+echo "Installing Samba..."
+sudo apt install -y samba
+
+# Backup original smb.conf file
+sudo cp /etc/samba/smb.conf /etc/samba/smb.conf.bak
+
+# Configure SMB share for the user folder (accessible without username/password)
+echo "Configuring SMB share for your home directory..."
+sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
+
+[UserShare]
+   comment = User Folder Share
+   path = /home/${USER}
+   browsable = yes
+   guest ok = yes
+   read only = no
+   force user = ${USER}
+EOF
+
+# Restart Samba service
+sudo systemctl restart smbd
 
 # Echo service addresses
 echo "Setup Complete!"
 echo "Netdata is available at: http://$SERVER_IP:19999"
 echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
 echo "Cockpit is available at: http://$SERVER_IP:9090"
-echo "Flask Web Application is available at: http://$SERVER_IP:$FLASK_PORT"
+echo "Flask Web Application is available at: http://$SERVER_IP:${FLASK_PORT}"
+echo "SMB share available at: smb://$SERVER_IP/UserShare (accessible without credentials)"
 
 exit 0
