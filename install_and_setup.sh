@@ -126,7 +126,7 @@ ollama pull deepseek-r1:14b
 ollama pull mistral:7b
 ollama pull mixtral:8x7b
 
-# Install additional Python packages (using --break-system-packages to override restrictions)
+# Install additional Python packages
 echo "Installing required Python packages..."
 pip3 install --upgrade pip --break-system-packages
 pip3 install --break-system-packages \
