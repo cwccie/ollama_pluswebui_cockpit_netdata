@@ -1,7 +1,7 @@
 #!/bin/bash
 # install_and_setup.sh
 # This script installs and configures Cockpit, Netdata, Ollama, Docker,
-# and a Flask landing page with required Python packages.
+# and a Flask landing page along with required Python packages.
 # It also creates systemd services for Ollama and Flask, then restarts all services.
 
 set -e  # Exit on error
@@ -35,7 +35,7 @@ sudo apt update && sudo apt upgrade -y
 echo "Installing Python and Pip..."
 sudo apt install -y python3 python3-pip
 echo "Installing Flask..."
-pip3 install --break-system-packages flask
+pip3 install --break-system-packages --ignore-installed flask
 
 # Install Cockpit
 echo "Installing Cockpit..."
@@ -128,8 +128,8 @@ ollama pull mixtral:8x7b
 
 # Install additional Python packages
 echo "Installing required Python packages..."
-pip3 install --upgrade pip --break-system-packages
-pip3 install --break-system-packages \
+pip3 install --upgrade pip --break-system-packages --ignore-installed
+pip3 install --break-system-packages --ignore-installed \
     numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
     deap umap-learn scikit-learn imbalanced-learn ucimlrepo flask
 
