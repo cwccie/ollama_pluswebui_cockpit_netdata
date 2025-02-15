@@ -10,6 +10,9 @@ echo "Starting system setup..."
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo "Detected Server IP: $SERVER_IP"
 
+# Set Flask Port (Not in use: 80, 3000, 9090, 19999)
+FLASK_PORT=5050
+
 # Extend logical volume
 echo "Checking available disk space..."
 sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
@@ -23,6 +26,14 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc
 
 # Update and upgrade system
 sudo apt update && sudo apt upgrade -y
+
+# Install Python, Pip, and required dependencies
+echo "Installing Python and Pip..."
+sudo apt install -y python3 python3-pip
+
+# Install Flask
+echo "Installing Flask..."
+pip3 install flask
 
 # Install Cockpit
 sudo apt install -y cockpit
@@ -102,6 +113,56 @@ ollama pull llama3.2:3b
 ollama pull deepseek-r1:14b
 ollama pull mistral:7b
 ollama pull mixtral:8x7b
+ollama pull deepseek-r1:32b
+ollama pull deepseek-r1:70b
+ollama pull codellama:34b
+ollama pull deepseek-coder-v2:16b
+
+# Install Python Dependencies
+echo "Installing required Python packages..."
+pip3 install --upgrade pip
+pip3 install \
+    numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
+    deap umap-learn scikit-learn imbalanced-learn ucimlrepo flask
+
+# Set up Flask application
+echo "Setting up Flask Web Application..."
+FLASK_APP_DIR="/opt/flask_app"
+sudo mkdir -p $FLASK_APP_DIR
+sudo tee $FLASK_APP_DIR/app.py > /dev/null <<EOF
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "<h1>Welcome to the Flask Landing Page!</h1>"
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=$FLASK_PORT, debug=False)
+EOF
+
+# Create systemd service for Flask
+sudo tee /etc/systemd/system/flask.service > /dev/null <<EOF
+[Unit]
+Description=Flask Web Application
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=$FLASK_APP_DIR
+ExecStart=/usr/bin/python3 $FLASK_APP_DIR/app.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Set permissions and enable Flask service
+sudo chmod -R 755 $FLASK_APP_DIR
+sudo systemctl daemon-reload
+sudo systemctl enable flask
+sudo systemctl restart flask
 
 # Restart all services in order
 echo "Restarting services..."
@@ -109,11 +170,13 @@ sudo systemctl restart ollama
 sudo systemctl restart docker
 sudo systemctl restart cockpit.socket
 sudo systemctl restart netdata
+sudo systemctl restart flask
 
 # Echo service addresses
 echo "Setup Complete!"
 echo "Netdata is available at: http://$SERVER_IP:19999"
 echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
 echo "Cockpit is available at: http://$SERVER_IP:9090"
+echo "Flask Web Application is available at: http://$SERVER_IP:$FLASK_PORT"
 
 exit 0
