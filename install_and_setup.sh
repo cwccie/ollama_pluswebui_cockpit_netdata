@@ -27,13 +27,9 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc
 # Update and upgrade system
 sudo apt update && sudo apt upgrade -y
 
-# Install Python, Pip, and required dependencies
-echo "Installing Python and Pip..."
-sudo apt install -y python3 python3-pip
-
-# Install Flask
-echo "Installing Flask..."
-pip3 install flask
+# Install Python, Pip, and Virtualenv
+echo "Installing Python, Pip, and Virtual Environment support..."
+sudo apt install -y python3 python3-pip python3-venv
 
 # Install Cockpit
 sudo apt install -y cockpit
@@ -113,22 +109,26 @@ ollama pull llama3.2:3b
 ollama pull deepseek-r1:14b
 ollama pull mistral:7b
 ollama pull mixtral:8x7b
-ollama pull deepseek-r1:32b
-ollama pull deepseek-r1:70b
-ollama pull codellama:34b
-ollama pull deepseek-coder-v2:16b
 
-# Install Python Dependencies
-echo "Installing required Python packages..."
-pip3 install --upgrade pip
-pip3 install \
-    numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
-    deap umap-learn scikit-learn imbalanced-learn ucimlrepo flask
-
-# Set up Flask application
-echo "Setting up Flask Web Application..."
+# Install Python Dependencies inside a Virtual Environment
+echo "Setting up Python Virtual Environment..."
 FLASK_APP_DIR="/opt/flask_app"
+FLASK_VENV="$FLASK_APP_DIR/venv"
+
 sudo mkdir -p $FLASK_APP_DIR
+sudo chown -R $USER:$USER $FLASK_APP_DIR
+
+# Create Virtual Environment
+python3 -m venv $FLASK_VENV
+
+# Activate Virtual Environment and Install Dependencies
+source $FLASK_VENV/bin/activate
+pip install --upgrade pip
+pip install flask numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
+    deap umap-learn scikit-learn imbalanced-learn ucimlrepo
+
+# Create Flask Application
+echo "Creating Flask Application..."
 sudo tee $FLASK_APP_DIR/app.py > /dev/null <<EOF
 from flask import Flask
 
@@ -143,15 +143,16 @@ if __name__ == '__main__':
 EOF
 
 # Create systemd service for Flask
+echo "Creating Flask systemd service..."
 sudo tee /etc/systemd/system/flask.service > /dev/null <<EOF
 [Unit]
 Description=Flask Web Application
 After=network.target
 
 [Service]
-User=root
+User=$USER
 WorkingDirectory=$FLASK_APP_DIR
-ExecStart=/usr/bin/python3 $FLASK_APP_DIR/app.py
+ExecStart=$FLASK_VENV/bin/python $FLASK_APP_DIR/app.py
 Restart=always
 
 [Install]
