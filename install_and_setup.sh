@@ -10,12 +10,13 @@ set -u  # Treat unset variables as errors
 
 echo "Starting system setup..."
 
-# Detect server IP
+# Detect server IP and set Flask port
 SERVER_IP=$(hostname -I | awk '{print $1}')
+export SERVER_IP
 echo "Detected Server IP: $SERVER_IP"
 
-# Set Flask Port (choose a port not in use: 80, 3000, 9090, 19999)
 FLASK_PORT=5050
+export FLASK_PORT
 
 # Extend logical volume (only if there is free space available)
 echo "Checking available disk space..."
