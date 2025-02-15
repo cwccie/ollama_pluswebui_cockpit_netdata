@@ -1,7 +1,7 @@
 #!/bin/bash
 # install_and_setup.sh
 # This script installs and configures Cockpit, Netdata, Ollama, Docker,
-# and a Flask landing page along with required Python packages.
+# and a Flask landing page with required Python packages.
 # It also creates systemd services for Ollama and Flask, then restarts all services.
 
 set -e  # Exit on error
