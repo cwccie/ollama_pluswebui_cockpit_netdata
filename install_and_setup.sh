@@ -6,6 +6,10 @@ set -u  # Treat unset variables as errors
 
 echo "Starting system setup..."
 
+# Get the primary IP address of the server
+SERVER_IP=$(hostname -I | awk '{print $1}')
+echo "Detected Server IP: $SERVER_IP"
+
 # Check disk and extend logical volume
 lsblk
 sudo vgdisplay ubuntu-vg
@@ -104,10 +108,10 @@ sudo systemctl restart docker
 sudo systemctl restart cockpit.socket
 sudo systemctl restart netdata
 
-# Echo service addresses
+# Echo service addresses with detected IP
 echo "Setup Complete!"
-echo "Netdata is available at: http://<ip>:19999"
-echo "Ollama-WebUI is available at: http://<ip>:3000"
-echo "Cockpit is available at: http://<ip>:9090"
+echo "Netdata is available at: http://$SERVER_IP:19999"
+echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
+echo "Cockpit is available at: http://$SERVER_IP:9090"
 
 exit 0
