@@ -11,10 +11,9 @@ SERVER_IP=$(hostname -I | awk '{print $1}')
 echo "Detected Server IP: $SERVER_IP"
 
 # Check disk and extend logical volume
-lsblk
-sudo vgdisplay ubuntu-vg
-sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv
-sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
+echo "Checking available disk space..."
+sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
+echo "Disk extended successfully!"
 df -h
 
 # Update and upgrade system
@@ -109,9 +108,11 @@ sudo systemctl restart cockpit.socket
 sudo systemctl restart netdata
 
 # Echo service addresses with detected IP
+SERVER_IP=$(hostname -I | awk '{print $1}')
 echo "Setup Complete!"
 echo "Netdata is available at: http://$SERVER_IP:19999"
 echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
 echo "Cockpit is available at: http://$SERVER_IP:9090"
+
 
 exit 0
