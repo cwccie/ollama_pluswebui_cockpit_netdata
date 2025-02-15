@@ -109,6 +109,14 @@ ollama pull llama3.2:3b
 ollama pull deepseek-r1:14b
 ollama pull mistral:7b
 ollama pull mixtral:8x7b
+ollama pull deepseek-r1:14b
+ollama pull deepseek-r1:32b
+ollama pull codellama:7b
+ollama pull deepseek-coder-v2:16b
+ollama pull codellama:13b
+ollama pull codellama:34b
+ollama pull deepseek-r1:70b
+ollama pull llama3.3:70b
 
 # Install Python Dependencies inside a Virtual Environment
 echo "Setting up Python Virtual Environment..."
