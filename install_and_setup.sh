@@ -6,7 +6,7 @@ set -u  # Treat unset variables as errors
 
 echo "Starting system setup..."
 
-# Detect server IP
+# Detect server IP and preserve it throughout the script
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo "Detected Server IP: $SERVER_IP"
 
@@ -64,9 +64,8 @@ sudo docker --version
 # Run test container
 sudo docker run hello-world
 
-# Add user to Docker group (only needs to be done once)
+# Add user to Docker group (user will need to log out/in for this to take effect)
 sudo usermod -aG docker $USER
-newgrp docker
 
 # Fix Open WebUI Conflict - Remove existing container if it exists
 docker rm -f open-webui || true
@@ -103,20 +102,32 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
 
-# Pull additional models
-ollama pull phi4:14b
-ollama pull llama3.2:3b
-ollama pull deepseek-r1:14b
-ollama pull mistral:7b
-ollama pull mixtral:8x7b
-ollama pull deepseek-r1:14b
-ollama pull deepseek-r1:32b
-ollama pull codellama:7b
-ollama pull deepseek-coder-v2:16b
-ollama pull codellama:13b
-ollama pull codellama:34b
-ollama pull deepseek-r1:70b
-ollama pull llama3.3:70b
+# Wait for Ollama API to become available before pulling models
+echo "Waiting for Ollama to become available..."
+for i in {1..10}; do
+    if curl -fsSL http://127.0.0.1:11434 >/dev/null 2>&1; then
+        echo "Ollama is available."
+        break
+    else
+        echo "Ollama not available yet, waiting..."
+        sleep 5
+    fi
+done
+
+# Pull additional models (each model pull is unique)
+echo "Pulling Ollama models..."
+ollama pull phi4:14b || echo "Failed to pull phi4:14b"
+ollama pull llama3.2:3b || echo "Failed to pull llama3.2:3b"
+ollama pull deepseek-r1:14b || echo "Failed to pull deepseek-r1:14b"
+ollama pull mistral:7b || echo "Failed to pull mistral:7b"
+ollama pull mixtral:8x7b || echo "Failed to pull mixtral:8x7b"
+ollama pull deepseek-r1:32b || echo "Failed to pull deepseek-r1:32b"
+ollama pull codellama:7b || echo "Failed to pull codellama:7b"
+ollama pull deepseek-coder-v2:16b || echo "Failed to pull deepseek-coder-v2:16b"
+ollama pull codellama:13b || echo "Failed to pull codellama:13b"
+ollama pull codellama:34b || echo "Failed to pull codellama:34b"
+ollama pull deepseek-r1:70b || echo "Failed to pull deepseek-r1:70b"
+ollama pull llama3.3:70b || echo "Failed to pull llama3.3:70b"
 
 # Install Python Dependencies inside a Virtual Environment
 echo "Setting up Python Virtual Environment..."
@@ -204,7 +215,7 @@ EOF
 # Restart Samba service
 sudo systemctl restart smbd
 
-# Echo service addresses
+# Echo service addresses with preserved SERVER_IP
 echo "Setup Complete!"
 echo "Netdata is available at: http://$SERVER_IP:19999"
 echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
