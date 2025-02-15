@@ -27,7 +27,7 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc
 # Update and upgrade system
 sudo apt update && sudo apt upgrade -y
 
-# Install Python, Pip, and Virtualenv
+# Install Python, Pip, and Virtualenv support
 echo "Installing Python, Pip, and Virtual Environment support..."
 sudo apt install -y python3 python3-pip python3-venv
 
@@ -126,6 +126,7 @@ source $FLASK_VENV/bin/activate
 pip install --upgrade pip
 pip install flask numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
     deap umap-learn scikit-learn imbalanced-learn ucimlrepo
+deactivate
 
 # Create Flask Application
 echo "Creating Flask Application..."
