@@ -26,7 +26,7 @@ sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && sudo resize2fs /
 echo "Disk extended successfully!"
 df -h
 
-# Configure Docker GPG key for APT
+# Configure Docker APT key
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null
 sudo chmod a+r /etc/apt/keyrings/docker.asc
@@ -42,7 +42,7 @@ sudo apt install -y python3 python3-pip python3-venv
 sudo apt install -y cockpit
 sudo systemctl enable --now cockpit.socket
 
-# Install Netdata and configure it for external access
+# Install Netdata and configure for external access
 sudo apt install -y netdata
 sudo systemctl enable --now netdata
 sudo sed -i 's/bind socket to IP = 127.0.0.1/bind socket to IP = 0.0.0.0/' /etc/netdata/netdata.conf
@@ -74,11 +74,9 @@ docker rm -f open-webui || true
 # Deploy the Open WebUI container
 docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
 echo "Open WebUI is available at: http://$SERVER_IP:3000"
-
-# Inspect the Docker bridge network (for debugging)
 docker network inspect bridge
 
-# Create or replace the systemd service for Ollama
+# Replace Ollama systemd service file with corrections
 sudo tee /etc/systemd/system/ollama.service > /dev/null <<'EOF'
 [Unit]
 Description=Ollama Service
@@ -88,16 +86,16 @@ After=network-online.target
 ExecStart=/usr/local/bin/ollama serve
 User=ollama
 Group=ollama
+WorkingDirectory=/usr/local
 Restart=always
 RestartSec=3
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
-Environment="OLLAMA_HOST=172.17.0.1"
+Environment="OLLAMA_HOST=127.0.0.1"
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
 EOF
 
-# Reload systemd and restart Ollama service
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
 
@@ -115,7 +113,6 @@ for i in {1..20}; do
     fi
 done
 
-# Pull Ollama models if the API is available; otherwise, warn and skip model pulls.
 if [ "$OLLAMA_AVAILABLE" = true ]; then
     echo "Pulling Ollama models..."
     ollama pull phi4:14b || echo "Failed to pull phi4:14b"
@@ -138,18 +135,12 @@ fi
 echo "Setting up Python Virtual Environment..."
 FLASK_APP_DIR="/opt/flask_app"
 FLASK_VENV="$FLASK_APP_DIR/venv"
-
 sudo mkdir -p "$FLASK_APP_DIR"
 sudo chown -R "$REAL_USER":"$REAL_USER" "$FLASK_APP_DIR"
-
-# Create the virtual environment
 python3 -m venv "$FLASK_VENV"
-
-# Activate the virtual environment and install Python dependencies
 source "$FLASK_VENV/bin/activate"
 pip install --upgrade pip
-pip install flask numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
-    deap umap-learn scikit-learn imbalanced-learn ucimlrepo
+pip install flask numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx deap umap-learn scikit-learn imbalanced-learn ucimlrepo
 deactivate
 
 # Create the Flask application file
@@ -167,7 +158,7 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=${FLASK_PORT}, debug=False)
 EOF
 
-# Create systemd service for the Flask application
+# Create systemd service for Flask
 echo "Creating Flask systemd service..."
 sudo tee /etc/systemd/system/flask.service > /dev/null <<EOF
 [Unit]
@@ -184,7 +175,6 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
-# Set appropriate permissions and enable the Flask service
 sudo chmod -R 755 "$FLASK_APP_DIR"
 sudo systemctl daemon-reload
 sudo systemctl enable flask
@@ -194,7 +184,6 @@ sudo systemctl restart flask
 echo "Installing Samba..."
 sudo apt install -y samba
 sudo cp /etc/samba/smb.conf /etc/samba/smb.conf.bak
-
 echo "Configuring SMB share for your home directory..."
 sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
 
@@ -206,10 +195,8 @@ sudo tee -a /etc/samba/smb.conf > /dev/null <<EOF
    read only = no
    force user = ${REAL_USER}
 EOF
-
 sudo systemctl restart smbd
 
-# Final echo statements with proper SERVER_IP substitution
 echo "Setup Complete!"
 echo "Netdata is available at: http://$SERVER_IP:19999"
 echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
