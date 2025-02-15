@@ -6,15 +6,20 @@ set -u  # Treat unset variables as errors
 
 echo "Starting system setup..."
 
-# Get the primary IP address of the server
+# Detect server IP
 SERVER_IP=$(hostname -I | awk '{print $1}')
 echo "Detected Server IP: $SERVER_IP"
 
-# Check disk and extend logical volume
+# Extend logical volume
 echo "Checking available disk space..."
 sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
 echo "Disk extended successfully!"
 df -h
+
+# Fix Docker GPG Key Issue
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null
+sudo chmod a+r /etc/apt/keyrings/docker.asc
 
 # Update and upgrade system
 sudo apt update && sudo apt upgrade -y
@@ -37,13 +42,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 # Install dependencies for Docker
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
 
-# Setup Docker GPG key
-sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
 # Add Docker repository
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Update package index again
 sudo apt-get update
@@ -61,11 +61,14 @@ sudo docker run hello-world
 sudo usermod -aG docker $USER
 newgrp docker
 
+# Fix Open WebUI Conflict - Remove existing container if it exists
+docker rm -f open-webui || true
+
 # Deploy Open WebUI container
 docker run -d -p 3000:8080 --add-host=host.docker.internal:host-gateway -v open-webui:/app/backend/data --name open-webui --restart always ghcr.io/open-webui/open-webui:main
 
 # Open WebUI webpage address
-echo "Open WebUI is available at: http://localhost:3000"
+echo "Open WebUI is available at: http://$SERVER_IP:3000"
 
 # Check Docker bridge network
 docker network inspect bridge
@@ -107,12 +110,10 @@ sudo systemctl restart docker
 sudo systemctl restart cockpit.socket
 sudo systemctl restart netdata
 
-# Echo service addresses with detected IP
-SERVER_IP=$(hostname -I | awk '{print $1}')
+# Echo service addresses
 echo "Setup Complete!"
 echo "Netdata is available at: http://$SERVER_IP:19999"
 echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
 echo "Cockpit is available at: http://$SERVER_IP:9090"
-
 
 exit 0
