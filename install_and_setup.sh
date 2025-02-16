@@ -1,102 +1,95 @@
 #!/bin/bash
-# install_and_setup.sh
+# Ultimate install_and_setup.sh
 # This script installs and configures Cockpit, Netdata, Ollama, Docker,
-# and a Flask landing page with required Python packages.
-# It also creates systemd services for Ollama and Flask, then restarts all services.
+# a Flask landing page, and required Python packages.
+# It creates systemd services for Ollama and Flask, then restarts all services.
+# All Ollama models from previous versions are included.
 
 set -e  # Exit on error
 set -o pipefail  # Catch pipeline errors
 set -u  # Treat unset variables as errors
 
-echo "Starting system setup..."
+# Banner function for clear section separation
+banner() {
+    echo "======================================="
+    echo "$1"
+    echo "======================================="
+}
+
+banner "STARTING SYSTEM SETUP"
 
 # Detect server IP and set Flask port
 SERVER_IP=$(hostname -I | awk '{print $1}')
 export SERVER_IP
 echo "Detected Server IP: $SERVER_IP"
-
 FLASK_PORT=5050
 export FLASK_PORT
+echo "Flask will run on port: $FLASK_PORT"
 
-# Extend logical volume (only if there is free space available)
-echo "Checking available disk space..."
+banner "EXTENDING DISK VOLUME"
+echo "Checking available disk space and extending logical volume..."
 sudo lvextend -l +100%FREE /dev/mapper/ubuntu--vg-ubuntu--lv && sudo resize2fs /dev/mapper/ubuntu--vg-ubuntu--lv
 echo "Disk extended successfully!"
 df -h
 
-# Fix Docker GPG Key Issue
+banner "FIXING DOCKER GPG KEY ISSUE"
+echo "Setting up Docker GPG key..."
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc > /dev/null
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 
-# Update and upgrade system
+banner "SYSTEM UPDATE AND UPGRADE"
 sudo apt update && sudo apt upgrade -y
 
-# Install Python, pip, and Flask
-echo "Installing Python and Pip..."
+banner "INSTALLING PYTHON, PIP, AND FLASK"
+echo "Installing Python3 and pip..."
 sudo apt install -y python3 python3-pip
 echo "Installing Flask..."
 pip3 install --break-system-packages --ignore-installed flask
 
-# Install Cockpit
-echo "Installing Cockpit..."
+banner "INSTALLING COCKPIT"
 sudo apt install -y cockpit
 sudo systemctl enable --now cockpit.socket
 
-# Install Netdata
-echo "Installing Netdata..."
+banner "INSTALLING NETDATA"
 sudo apt install -y netdata
 sudo systemctl enable --now netdata
-echo "Configuring Netdata to allow external access..."
+echo "Configuring Netdata for external access..."
 sudo sed -i 's/bind socket to IP = 127.0.0.1/bind socket to IP = 0.0.0.0/' /etc/netdata/netdata.conf
 sudo systemctl restart netdata
 
-# Install Ollama
+banner "INSTALLING OLLAMA"
 echo "Installing Ollama..."
 curl -fsSL https://ollama.com/install.sh | sh
 
-# Install dependencies for Docker
+banner "INSTALLING DOCKER DEPENDENCIES AND DOCKER"
 echo "Installing Docker dependencies..."
 sudo apt-get install -y ca-certificates curl gnupg lsb-release
-
-# Add Docker repository
 echo "Adding Docker repository..."
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Update package index again
 sudo apt-get update
-
-# Install Docker
 echo "Installing Docker..."
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo docker --version
-
-# Run test container
 echo "Running Docker test container..."
 sudo docker run hello-world
 
-# Add current user to Docker group
-echo "Adding current user to Docker group..."
+echo "Adding current user ($USER) to Docker group..."
 sudo usermod -aG docker $USER
 newgrp docker
 
-# Fix Open WebUI Conflict - Remove existing container if present
+banner "DEPLOYING OPEN WEBUI CONTAINER"
 echo "Removing any existing Open WebUI container..."
 docker rm -f open-webui || true
-
-# Deploy Open WebUI container
 echo "Deploying Open WebUI container..."
 docker run -d -p 3000:8080 --add-host=host.docker.internal:172.17.0.1 \
-  -e OLLAMA_HOST=host.docker.internal:11434 \
   -v open-webui:/app/backend/data --name open-webui --restart always \
   ghcr.io/open-webui/open-webui:main
-echo "Open WebUI is available at: http://$SERVER_IP:3000"
-
-# Check Docker bridge network
+echo "Open WebUI should be available at: http://$SERVER_IP:3000"
 docker network inspect bridge
 
-# Replace Ollama systemd service file
-echo "Configuring Ollama systemd service..."
+banner "CONFIGURING OLLAMA SYSTEMD SERVICE"
+echo "Creating custom Ollama systemd service file..."
 sudo tee /etc/systemd/system/ollama.service > /dev/null <<EOF
 [Unit]
 Description=Ollama Service
@@ -115,11 +108,11 @@ Environment="OLLAMA_HOST=172.17.0.1"
 WantedBy=default.target
 EOF
 
-# Reload and restart Ollama service
+echo "Reloading systemd and restarting Ollama service..."
 sudo systemctl daemon-reload
 sudo systemctl restart ollama
 
-# Pull additional Ollama models
+banner "PULLING OLLAMA MODELS"
 echo "Pulling additional Ollama models..."
 ollama pull phi4:14b
 ollama pull llama3.2:3b
@@ -127,17 +120,18 @@ ollama pull deepseek-r1:14b
 ollama pull mistral:7b
 ollama pull mixtral:8x7b
 
-# Install additional Python packages
-echo "Installing required Python packages..."
+banner "INSTALLING ADDITIONAL PYTHON PACKAGES"
+echo "Upgrading pip and installing required Python packages..."
 pip3 install --upgrade pip --break-system-packages --ignore-installed
 pip3 install --break-system-packages --ignore-installed \
     numpy pandas tqdm tabulate seaborn matplotlib prettytable torch networkx \
     deap umap-learn scikit-learn imbalanced-learn ucimlrepo flask
 
-# Set up Flask application
-echo "Setting up Flask Web Application..."
+banner "SETTING UP FLASK WEB APPLICATION"
 FLASK_APP_DIR="/opt/flask_app"
+echo "Creating Flask application directory at $FLASK_APP_DIR..."
 sudo mkdir -p "$FLASK_APP_DIR"
+echo "Creating Flask app..."
 sudo tee "$FLASK_APP_DIR/app.py" > /dev/null <<EOF
 from flask import Flask
 
@@ -151,7 +145,6 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=$FLASK_PORT, debug=False)
 EOF
 
-# Create systemd service for Flask
 echo "Creating systemd service for Flask..."
 sudo tee /etc/systemd/system/flask.service > /dev/null <<EOF
 [Unit]
@@ -168,23 +161,22 @@ Restart=always
 WantedBy=multi-user.target
 EOF
 
-# Set permissions and enable Flask service
+echo "Setting permissions for Flask application..."
 sudo chmod -R 755 "$FLASK_APP_DIR"
 sudo systemctl daemon-reload
 sudo systemctl enable flask
 sudo systemctl restart flask
 
-# Restart all services in order
-echo "Restarting services..."
+banner "FINAL SERVICE RESTARTS AND SUMMARY"
+echo "Restarting all services..."
 sudo systemctl restart ollama
 sudo systemctl restart docker
 sudo systemctl restart cockpit.socket
 sudo systemctl restart netdata
 sudo systemctl restart flask
 
-# Echo final service addresses
 echo "======================================="
-echo "Setup Complete!"
+echo "SETUP COMPLETE!"
 echo "Netdata is available at: http://$SERVER_IP:19999"
 echo "Ollama-WebUI is available at: http://$SERVER_IP:3000"
 echo "Cockpit is available at: http://$SERVER_IP:9090"
