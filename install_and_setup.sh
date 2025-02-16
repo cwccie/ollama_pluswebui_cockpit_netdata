@@ -89,7 +89,7 @@ echo "Open WebUI should be available at: http://$SERVER_IP:3000"
 docker network inspect bridge
 
 banner "CONFIGURING OLLAMA SYSTEMD SERVICE"
-echo "Creating custom Ollama systemd service file..."
+echo "Creating custom Ollama systemd service file with OLLAMA_HOST set to 0.0.0.0..."
 sudo tee /etc/systemd/system/ollama.service > /dev/null <<EOF
 [Unit]
 Description=Ollama Service
@@ -102,7 +102,7 @@ Group=ollama
 Restart=always
 RestartSec=3
 Environment="PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"
-Environment="OLLAMA_HOST=172.17.0.1"
+Environment="OLLAMA_HOST=0.0.0.0"
 
 [Install]
 WantedBy=default.target
@@ -119,6 +119,14 @@ ollama pull llama3.2:3b
 ollama pull deepseek-r1:14b
 ollama pull mistral:7b
 ollama pull mixtral:8x7b
+ollama pull deepseek-r1:14b
+ollama pull deepseek-r1:32b
+ollama pull codellama:7b
+ollama pull deepseek-coder-v2:16b
+ollama pull codellama:13b
+ollama pull codellama:34b
+ollama pull deepseek-r1:70b
+ollama pull llama3.3:70b
 
 banner "INSTALLING ADDITIONAL PYTHON PACKAGES"
 echo "Upgrading pip and installing required Python packages..."
