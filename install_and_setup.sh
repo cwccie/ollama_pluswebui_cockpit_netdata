@@ -114,19 +114,25 @@ sudo systemctl restart ollama
 
 banner "PULLING OLLAMA MODELS"
 echo "Pulling additional Ollama models..."
-ollama pull phi4:14b
+ollama pull tinyllama:1.1b
 ollama pull llama3.2:3b
-ollama pull deepseek-r1:14b
 ollama pull mistral:7b
-ollama pull mixtral:8x7b
-ollama pull deepseek-r1:14b
-ollama pull deepseek-r1:32b
 ollama pull codellama:7b
-ollama pull deepseek-coder-v2:16b
+ollama pull wizard-vicuna-uncensored:7b
+ollama pull wizard-vicuna-uncensored:13b
 ollama pull codellama:13b
+ollama pull phi4:14b
+ollama pull deepseek-r1:14b
+ollama pull deepseek-coder-v2:16b
+ollama pull wizard-vicuna-uncensored:30b
+ollama pull Godmoded/llama3-lexi-uncensored
+ollama pull deepseek-r1:32b
 ollama pull codellama:34b
 ollama pull deepseek-r1:70b
 ollama pull llama3.3:70b
+ollama pull mixtral:8x7b
+ollama pull dolphin-mixtral:8x7b
+ollama pull dolphin-mixtral:8x22b
 
 banner "INSTALLING ADDITIONAL PYTHON PACKAGES"
 echo "Upgrading pip and installing required Python packages..."
